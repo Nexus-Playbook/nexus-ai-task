@@ -1,74 +1,115 @@
 # Nexus AI Task Service
 
-Task and project management microservice for Nexus AI platform.
+Enterprise-grade task and project management microservice for the Nexus AI platform. Built with NestJS and MongoDB, featuring Kanban boards, advanced filtering, and team collaboration.
 
-## Features
-- Task creation, assignment, and tracking
-- Project management with Kanban boards
-- Real-time task updates
-- Task comments and collaboration
-- Priority and due date management
-- Task history and audit trail
-- Team-based task organization
+## ✅ Week 2 Status: COMPLETE
+
+**Current Implementation:**
+- ✅ Complete CRUD operations for projects and tasks
+- ✅ Kanban board with position management
+- ✅ Advanced filtering, search, and analytics
+- ✅ Team-scoped multi-tenancy with JWT authentication
+- ✅ Audit trails and task history tracking
+- ✅ Rate limiting and comprehensive validation
+- ✅ OpenAPI/Swagger documentation
+- ✅ Production-ready MongoDB integration
 
 ## Tech Stack
-- Node.js with NestJS framework
-- TypeScript  
-- MongoDB for document storage
-- Redis for real-time pub/sub
-- WebSocket for live updates
+- **Framework:** NestJS (TypeScript)
+- **Database:** MongoDB with Mongoose ODM
+- **Authentication:** JWT tokens from nexus-ai-auth service
+- **Documentation:** OpenAPI/Swagger
+- **Validation:** class-validator with custom DTOs
+- **Performance:** Rate limiting, MongoDB indexing
+- **Future:** Redis for real-time features, WebSocket for live updates
 
-## API Endpoints
+## API Documentation
 
-### Tasks
-- `POST /tasks` - Create new task
-- `GET /tasks` - List tasks (with filters)
-- `GET /tasks/:id` - Get task details
-- `PATCH /tasks/:id` - Update task
-- `DELETE /tasks/:id` - Delete task
-- `POST /tasks/:id/comments` - Add comment to task
-- `GET /tasks/:id/history` - Get task history
+**Interactive docs:** `http://localhost:3002/api/docs` (Swagger UI)
 
-### Projects
-- `POST /projects` - Create new project
-- `GET /projects` - List team projects
-- `GET /projects/:id` - Get project details
-- `PATCH /projects/:id` - Update project
-- `DELETE /projects/:id` - Delete project
-- `GET /projects/:id/tasks` - Get all project tasks
+### Core Endpoints (Week 2 Complete)
 
-### Kanban
-- `GET /projects/:id/board` - Get Kanban board data
-- `PATCH /tasks/:id/status` - Update task status (move columns)
-- `PATCH /tasks/:id/position` - Update task position in column
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| **Projects** | | |
+| POST | `/projects` | Create new project |
+| GET | `/projects` | List team projects (supports pagination) |
+| GET | `/projects/:id` | Get project details |
+| PATCH | `/projects/:id` | Update project |
+| DELETE | `/projects/:id` | Soft delete project |
+| POST | `/projects/:id/restore` | Restore deleted project |
+| GET | `/projects/stats` | Project statistics & analytics |
+| **Tasks** | | |
+| POST | `/tasks` | Create new task |
+| GET | `/tasks` | List tasks with advanced filtering |
+| GET | `/tasks/kanban` | Get Kanban board view |
+| GET | `/tasks/:id` | Get task details with history |
+| PATCH | `/tasks/:id` | Update task |
+| PATCH | `/tasks/:id/position` | Update task position (drag & drop) |
+| DELETE | `/tasks/:id` | Soft delete task |
+| POST | `/tasks/:id/restore` | Restore deleted task |
+| GET | `/tasks/stats` | Task analytics & distribution |
+| **Health** | | |
+| GET | `/health` | Service health check |
+| GET | `/health/ready` | Kubernetes readiness probe |
 
-## Getting Started
+### Advanced Filtering (Tasks)
+```bash
+# Text search across title and description
+GET /tasks?search=authentication
+
+# Multi-criteria filtering
+GET /tasks?project_id=123&status=todo&priority=1&labels=urgent,backend
+
+# User assignments
+GET /tasks?assignee_id=user-uuid
+
+# Include soft-deleted items
+GET /tasks?include_completed=true
+```
+
+## Quick Start
 
 ### Prerequisites
 - Node.js 18+
-- MongoDB 5+
-- Redis 6+
-- npm or yarn
+- MongoDB 4.4+
+- nexus-ai-auth service running (JWT validation)
 
-### Installation
+### Installation & Setup
 ```bash
+# Install dependencies
 npm install
-```
 
-### Development
-```bash
+# Configure environment (copy from .env.example)
+# Update MONGODB_URI and JWT_SECRET
+
+# Start development server
 npm run start:dev
 ```
 
-Service runs on [http://localhost:3002](http://localhost:3002)
+**Service URL:** `http://localhost:3002`  
+**API Docs:** `http://localhost:3002/api/docs`
 
-## Environment Variables
-```
+## Configuration
+
+Current environment variables (.env):
+```bash
+# Database
 MONGODB_URI=mongodb://localhost:27017/nexus_ai_tasks
-REDIS_URL=redis://localhost:6379
-JWT_SECRET=your-jwt-secret
-AUTH_SERVICE_URL=http://localhost:3001
+
+# Authentication (must match auth service)
+JWT_SECRET=your-super-secret-jwt-key-change-in-production
+
+# Server
 PORT=3002
+
+# External Services
+AUTH_SERVICE_URL=http://localhost:3001
+
+# Optional Features
+CORS_ORIGIN=http://localhost:3000
+THROTTLE_TTL=60
+THROTTLE_LIMIT=100
 ```
 
 ## Scripts
@@ -78,66 +119,122 @@ PORT=3002
 - `npm run test` - Run tests
 - `npm run test:e2e` - Run end-to-end tests
 
-## Data Models
+## Data Models (MongoDB Schemas)
 
-### Task Document
-```json
+### Project Schema
+```typescript
 {
-  "_id": "ObjectId",
-  "title": "string",
-  "description": "string", 
-  "status": "todo|in_progress|done|blocked",
-  "assignee_id": "UUID",
-  "project_id": "ObjectId",
-  "labels": ["string"],
-  "priority": "low|medium|high|critical",
-  "due_date": "Date",
-  "created_at": "Date",
-  "updated_at": "Date",
-  "team_id": "UUID",
-  "history": [
-    {
-      "action": "string",
-      "user_id": "UUID", 
-      "timestamp": "Date",
-      "changes": "object"
-    }
-  ]
+  _id: ObjectId;               // MongoDB document ID
+  id: string;                  // Computed field (API responses)
+  name: string;                // Project name (max 100 chars)
+  description?: string;        // Optional description
+  team_id: string;            // Team ownership (UUID)
+  created_by: string;         // Creator user ID (UUID)
+  created_at: Date;           // Creation timestamp
+  updated_at: Date;           // Last modified timestamp
+  settings?: {                // Custom project settings
+    columns: string[];        // Custom Kanban column names
+    visibility: 'team' | 'public' | 'private';
+    color: string;            // Hex color for UI theming
+  };
+  deleted_at?: Date;          // Soft delete timestamp
 }
 ```
 
-### Project Document
-```json
+### Task Schema
+```typescript
 {
-  "_id": "ObjectId",
-  "name": "string",
-  "description": "string",
-  "team_id": "UUID",
-  "created_by": "UUID",
-  "created_at": "Date",
-  "updated_at": "Date",
-  "settings": {
-    "columns": ["todo", "in_progress", "review", "done"],
-    "visibility": "team|public|private"
-  }
+  _id: ObjectId;                    // MongoDB document ID
+  id: string;                       // Computed field (API responses)
+  title: string;                    // Task title (max 200 chars)
+  description?: string;             // Rich text description
+  status: 'todo' | 'in_progress' | 'done' | 'blocked';
+  priority: 1 | 2 | 3 | 4 | 5;     // 1=Critical, 5=Lowest
+  team_id: string;                 // Team ownership (UUID)
+  project_id?: ObjectId;           // Parent project (optional)
+  assignee_id?: string;            // Assigned user (UUID)
+  created_by: string;              // Creator (UUID)
+  created_at: Date;                // Creation timestamp
+  updated_at: Date;                // Last modified timestamp
+  labels?: string[];               // Categorization tags
+  due_date?: Date;                 // Task deadline
+  estimated_hours?: number;        // Time estimate
+  position: number;                // Drag-drop ordering (timestamp-based)
+  completed_at?: Date;             // Task completion timestamp
+  deleted_at?: Date;               // Soft delete timestamp
+  history: Array<{                 // Complete audit trail
+    action: string;                // Action type (created, updated, assigned, etc.)
+    user_id: string;               // User who performed action
+    timestamp: Date;               // When action occurred
+    changes: Array<{               // Field-level change tracking
+      field: string;               // Changed field name
+      old_value: any;              // Previous value
+      new_value: any;              // New value
+    }>;
+  }>;
 }
 ```
 
-## Real-time Events
-- `task.created` - New task created
-- `task.updated` - Task modified
-- `task.assigned` - Task assigned to user
-- `task.commented` - New comment added
-- `project.created` - New project created
-- `project.updated` - Project modified
+## Security & Performance
 
-## Authentication
-All endpoints require valid JWT token from auth service. Team-level access control ensures users can only access their team's tasks and projects.
+**Security (Week 2 Complete):**
+- JWT-based authentication with team scoping
+- All database queries automatically filtered by `team_id`
+- Input validation using NestJS pipes and class-validator
+- Rate limiting: 100 requests per minute per IP
+- Soft deletes with restore functionality
+- CORS protection for browser security
 
-## Performance
-- MongoDB indexes on frequently queried fields (team_id, assignee_id, project_id)
-- Redis caching for project board data
-- Real-time updates via Redis pub/sub with WebSocket
+**Performance Optimizations:**
+- Strategic MongoDB compound indexes:
+  - `{team_id: 1, status: 1, position: 1}` - Kanban board queries
+  - `{team_id: 1, project_id: 1}` - Project-filtered task views
+  - `{team_id: 1, assignee_id: 1}` - User dashboard queries
+  - `{title: 'text', description: 'text'}` - Full-text search
+- Efficient aggregation pipelines for analytics
+- Pagination support for large datasets
+- MongoDB connection pooling and automatic retry logic
+
+## Testing
+
+**Available Resources:**
+- Comprehensive API testing guide: [`API-TESTING-GUIDE.md`](./API-TESTING-GUIDE.md)
+- PowerShell scripts for all endpoint testing
+- Example request/response payloads
+- Error scenario validations
+
+**Test Coverage:**
+- All CRUD operations (projects & tasks)
+- Kanban board functionality
+- Advanced filtering and search
+- Authentication and authorization
+- Analytics and statistics endpoints
+
+## Architecture
+
+**Current Implementation (Week 2):**
+- Clean domain-driven structure (`/projects`, `/tasks`, `/common`)
+- Dependency injection with NestJS modules
+- Controller → Service → Repository pattern
+- MongoDB with Mongoose ODM for flexible document storage
+- Comprehensive validation and error handling
+- Health checks for monitoring and deployment
+
+**Future Enhancements (Week 3+):**
+- Real-time WebSocket connections for live Kanban updates
+- Redis pub/sub for multi-user collaboration
+- Event-driven architecture for microservice communication
+- Advanced caching strategies for high-performance operations
+
+## Week 3 Roadmap
+- [ ] WebSocket gateway for real-time Kanban updates
+- [ ] Redis integration for pub/sub messaging
+- [ ] Optimistic concurrency control for collaborative editing
+- [ ] Real-time notifications for task assignments and updates
 
 ## License
 Private - Nexus AI Platform
+
+---
+
+**🎉 Week 2 Complete! Ready for real-time features in Week 3.**
